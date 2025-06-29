@@ -2,7 +2,7 @@ let video, handpose, predictions = [];
 let knightImg, knightCanvas, knightCtx;
 
 function preload() {
-  knightImg = loadImage('knight_grayscale.png'); // full-res grayscale
+  knightImg = loadImage('knightblackwhite.png'); // full-res grayscale
 }
 
 function setup() {
