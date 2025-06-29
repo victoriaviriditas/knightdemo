@@ -1,51 +1,48 @@
-let handpose;
-let video;
-let predictions = [];
-let knightImages = [];
-let currentDitherLevel = 0;
-let maxMovement = 100;
+let video, handpose, predictions = [];
+let knightImg, knightCanvas, knightCtx;
 
 function preload() {
-  for (let i = 0; i < 4; i++) {
-    knightImages[i] = loadImage("knight_dither_" + i + ".png");
-  }
+  knightImg = loadImage('knight_grayscale.png'); // full-res grayscale
 }
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
-  video = createCapture(VIDEO);
-  video.size(width, height);
-  video.hide();
-  
-  handpose = ml5.handpose(video, () => {
-    console.log("Handpose ready!");
-  });
-  
-  handpose.on("predict", results => {
-    predictions = results;
-  });
-  
-  imageMode(CENTER);
+  video = createCapture(VIDEO).size(640, 480).hide();
+  handpose = ml5.handpose(video, () => console.log('Ready'));
+  handpose.on('predict', r=> predictions = r);
+
+  // Canvas for dithering
+  knightCanvas = createGraphics(knightImg.width, knightImg.height);
+  knightCtx = knightCanvas.canvas.getContext('2d');
 }
 
 function draw() {
   background(0);
-
   let movement = 0;
-  if (predictions.length > 0) {
-    const hand = predictions[0];
-    const indexFinger = hand.landmarks[8]; // tip of index finger
 
-    // Map hand movement to knight motion
-    let x = map(indexFinger[0], 0, video.width, width / 2 - 50, width / 2 + 50);
-    let y = map(indexFinger[1], 0, video.height, height / 2 - 50, height / 2 + 50);
-    
-    // Calculate movement intensity
-    movement = dist(indexFinger[0], indexFinger[1], video.width / 2, video.height / 2);
-    currentDitherLevel = int(map(movement, 0, maxMovement, 0, 3));
-    currentDitherLevel = constrain(currentDitherLevel, 0, 3);
-    
-    image(knightImages[currentDitherLevel], x, y);
+  if (predictions.length>0) {
+    const {landmarks} = predictions[0];
+    const idx = landmarks[8];
+    movement = dist(idx[0],idx[1], video.width/2, video.height/2);
+
+    const dotSize = map(movement, 0, 200, 2, 10);
+    const algorithm = (movement>150) ? 'atkinson' : 'ordered';
+
+    knightCanvas.image(knightImg, 0, 0);
+    const imgEl = knightCanvas.elt;
+    ditherjs.dither(imgEl, {algorithm, step: dotSize});
+    image(knightCanvas, width/2, height/2, knightCanvas.width/2, knightCanvas.height/2);
+  } else {
+    if (frameCount % 30 === 0) applyIdleDither();
+    image(knightCanvas, width/2, height/2);
+  }
+}
+
+function applyIdleDither() {
+  knightCanvas.image(knightImg, 0, 0);
+  ditherjs.dither(knightCanvas.elt, {algorithm: 'ordered', step: 3});
+}
+
   } else {
     // Idle: show lightly dithered knight in center
     image(knightImages[0], width / 2, height / 2);
